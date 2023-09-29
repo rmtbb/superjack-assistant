@@ -5,6 +5,7 @@ from langchain.vectorstores import FAISS
 from langchain.llms import OpenAI
 from langchain import PromptTemplate
 from langchain.chains import LLMChain
+from langchain.document_loaders import WebBaseLoader
 from dotenv import load_dotenv
 
 
@@ -12,23 +13,19 @@ load_dotenv()
 embeddings = OpenAIEmbeddings()
 
 
-def create_db_from_youtube_video_url(video_url: str) -> FAISS:
-    loader = YoutubeLoader.from_youtube_url(video_url)
-    transcript = loader.load()
+def create_db_from_web_url(url: str) -> FAISS:
+    loader = WebBaseLoader.from_url(url)
+    page_content = loader.load()
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    docs = text_splitter.split_documents(transcript)
+    docs = text_splitter.split_documents(page_content)
 
     db = FAISS.from_documents(docs, embeddings)
     return db
 
 
-def get_response_from_query(db, query, k=4):
-    """
-    text-davinci-003 can handle up to 4097 tokens. Setting the chunksize to 1000 and k to 4 maximizes
-    the number of tokens to analyze.
-    """
 
+def get_response_from_query(db, query, k=4):
     docs = db.similarity_search(query, k=k)
     docs_page_content = " ".join([d.page_content for d in docs])
 
@@ -37,15 +34,15 @@ def get_response_from_query(db, query, k=4):
     prompt = PromptTemplate(
         input_variables=["question", "docs"],
         template="""
-        You are a helpful assistant that that can answer questions about youtube videos 
-        based on the video's transcript.
+        You are a helpful assistant that can answer questions about Superjack: The Game 
+        based on the game's official website content.
         
         Answer the following question: {question}
-        By searching the following video transcript: {docs}
+        By searching the following web page content: {docs}
         
-        Only use the factual information from the transcript to answer the question.
+        Only use the factual information from the content to answer the question.
         
-        If you feel like you don't have enough information to answer the question, say "I don't know".
+        If you feel like you don't have enough information to answer the question, say "I don't know."
         
         Your answers should be verbose and detailed.
         """,
